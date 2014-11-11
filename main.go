@@ -27,6 +27,7 @@ var (
 	matchvar = flag.String("match", ".*", "filter packages")
 	maxLevel = flag.Uint("maxlevel", 0, "maximum package level to display")
 	pkgmatch *regexp.Regexp
+	colors   = make(map[string]*regexp.Regexp)
 )
 
 func truncate(p string) string {
@@ -132,14 +133,36 @@ func keys() map[string]int {
 }
 
 func init() {
+	colorPatterns := make(map[string]*string)
+	for _, i := range []string{"red", "green", "blue", "yellow", "pink"} {
+		colorPatterns[i] = flag.String(i, "", fmt.Sprintf("Packages matching this pattern will be filled %s", i))
+	}
+
 	flag.Parse()
 	pkgmatch = regexp.MustCompile(*matchvar)
+
+	for col, pattern := range colorPatterns {
+		if *pattern == "" {
+			continue
+		}
+		colors[col] = regexp.MustCompile(*pattern)
+	}
 }
 
 func check(err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func getColor(pkg string) string {
+	for col, r := range colors {
+		if r.MatchString(pkg) {
+			return fmt.Sprintf(" style=\"filled\" fillcolor=\"%s\"", col)
+		}
+	}
+
+	return ""
 }
 
 func main() {
@@ -156,7 +179,7 @@ func main() {
 	fmt.Fprintf(in, "digraph {\n")
 	keys := keys()
 	for p, i := range keys {
-		fmt.Fprintf(in, "\tN%d [label=%q,shape=box];\n", i, p)
+		fmt.Fprintf(in, "\tN%d [label=%q shape=box%s];\n", i, p, getColor(p))
 	}
 	for k, v := range pkgs {
 		for p, _ := range v {
